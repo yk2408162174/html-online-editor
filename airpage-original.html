@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>轻页 AirPage · HTML 可视化编辑器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f3f7ff;
+    --panel: #ffffff;
+    --panel-2: #e9f1ff;
+    --line: #dbe6f9;
+    --text: #21304e;
+    --dim: #8195b8;
+    --accent: #3d7bfd;
+    --accent-2: #6ea4ff;
+    --accent-ink: #ffffff;
+    --pop: #ff6b9a;
+    --sel: #3d7bfd;
+    --edit: #14b98a;
+    --danger: #ff5c7a;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "Nunito", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── 顶部工具栏 ─────────────────────────────── */
+  #topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 14px;
+    height: 52px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    flex: none;
+  }
+  #logo {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-right: 10px;
+  }
+  #logo .mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: var(--accent-ink);
+    font-weight: 800;
+    font-size: 15px;
+    display: grid;
+    place-items: center;
+    transform: rotate(-8deg);
+    box-shadow: 0 4px 10px rgba(61,123,253,.35);
+  }
+  #logo .name { font-weight: 800; font-size: 15px; letter-spacing: .04em; }
+  #logo .sub { font-family: var(--mono); font-size: 10.5px; color: var(--dim); margin-top: 2px; }
+
+  button {
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--text);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    padding: 7px 12px;
+    font-weight: 600;
+    cursor: pointer;
+    line-height: 1;
+    transition: background .12s, border-color .12s, opacity .12s;
+  }
+  button:hover { background: var(--panel-2); border-color: var(--line); }
+  button:disabled { opacity: .35; cursor: default; }
+  button:disabled:hover { background: transparent; border-color: transparent; }
+  button.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: var(--accent-ink);
+    font-weight: 700;
+    border-color: transparent;
+    box-shadow: 0 4px 14px rgba(61,123,253,.35);
+  }
+  button.primary:hover { background: linear-gradient(135deg, #2f6df0, #5b97ff); }
+  .vsep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; flex: none; }
+
+  #fileinfo {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-left: 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--dim);
+    min-width: 0;
+  }
+  #filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #dirty-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--pop);
+    display: none;
+    flex: none;
+  }
+  #dirty-dot.on { display: block; }
+  .spacer { flex: 1; }
+
+  /* ── 画布区 ─────────────────────────────── */
+  #stage {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+    background:
+      radial-gradient(circle, #cfdff9 1px, transparent 1px) 0 0 / 22px 22px,
+      linear-gradient(180deg, #eef4fe, #e6eefc);
+  }
+  #empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #empty .card {
+    text-align: center;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    padding: 44px 56px;
+    box-shadow: 0 24px 60px rgba(61,123,253,.14);
+  }
+  #empty .glyph {
+    font-size: 36px;
+    width: 76px; height: 76px;
+    margin: 0 auto 18px;
+    border-radius: 22px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: var(--accent-ink);
+    display: grid; place-items: center;
+    font-weight: 800;
+    transform: rotate(-8deg);
+    box-shadow: 0 10px 26px rgba(61,123,253,.35);
+  }
+  #empty h1 { font-size: 19px; margin: 0 0 8px; font-weight: 600; }
+  #empty p { color: var(--dim); font-size: 13px; margin: 0 0 24px; line-height: 1.7; }
+  #empty .actions { display: flex; gap: 10px; justify-content: center; }
+  #empty .actions button { padding: 10px 20px; font-size: 14px; border-color: var(--line); }
+  #empty .actions button.primary { border-color: transparent; }
+  #empty .hint { margin-top: 20px; font-family: var(--mono); font-size: 11px; color: var(--dim); }
+
+  #canvas {
+    position: absolute;
+    inset: 14px 16px 16px;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    box-shadow: 0 14px 44px rgba(61,123,253,.12);
+    background: #fff;
+  }
+  #canvas[hidden] { display: none; }
+  #frame { width: 100%; height: 100%; border: 0; background: #fff; display: block; }
+
+  /* ── 覆盖层：选中框 / 悬停框 / 指示线 / 浮动条 ── */
+  #overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  #hoverbox {
+    position: absolute;
+    border: 1px dashed rgba(61,123,253,.65);
+    border-radius: 2px;
+    display: none;
+  }
+  #selbox {
+    position: absolute;
+    border: 1.5px solid var(--sel);
+    border-radius: 2px;
+    box-shadow: 0 0 0 3px rgba(61,123,253,.16);
+    display: none;
+  }
+  #selbox.editing {
+    border-color: var(--edit);
+    box-shadow: 0 0 0 3px rgba(20,185,138,.16);
+  }
+  #selbox.dragging { opacity: .5; }
+  #seltag {
+    position: absolute;
+    transform: translateY(-100%);
+    background: var(--sel);
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    padding: 2px 6px;
+    border-radius: 3px 3px 3px 0;
+    left: -1.5px; top: -1.5px;
+    white-space: nowrap;
+  }
+  #selbox.editing #seltag { background: var(--edit); color: #fff; }
+  #selbox.tag-inside #seltag { transform: none; border-radius: 0 0 3px 0; }
+  #selbox .rz {
+    position: absolute;
+    width: 10px; height: 10px;
+    background: #fff;
+    border: 1.5px solid var(--sel);
+    border-radius: 3px;
+    pointer-events: auto;
+  }
+  #selbox .rz[data-dir="e"]  { right: -6px; top: 50%; margin-top: -5px; cursor: ew-resize; }
+  #selbox .rz[data-dir="s"]  { bottom: -6px; left: 50%; margin-left: -5px; cursor: ns-resize; }
+  #selbox .rz[data-dir="se"] { right: -6px; bottom: -6px; cursor: nwse-resize; }
+  #selbox.editing .rz, #selbox.dragging .rz { display: none; }
+  #sizetag {
+    position: absolute;
+    display: none;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 7px;
+    border-radius: 5px;
+    white-space: nowrap;
+  }
+  #btn-mode.on { border-color: var(--accent); color: var(--accent); background: rgba(61,123,253,.08); }
+  #dropline {
+    position: absolute;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--pop);
+    box-shadow: 0 0 8px rgba(255,107,154,.8);
+    display: none;
+  }
+
+  .floatbar {
+    position: absolute;
+    display: none;
+    align-items: center;
+    gap: 2px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 4px;
+    box-shadow: 0 10px 30px rgba(33,48,78,.16);
+    pointer-events: auto;
+  }
+  .floatbar button {
+    padding: 5px 8px;
+    font-size: 12.5px;
+    border-radius: 6px;
+    font-family: var(--mono);
+  }
+  .floatbar button:hover { background: var(--panel-2); }
+  .floatbar button.danger:hover { background: rgba(255,92,122,.12); color: var(--danger); }
+  .floatbar .vsep { height: 16px; margin: 0 2px; }
+
+  #textbar { gap: 4px; }
+  #textbar select, #textbar input[type="number"] {
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 4px 6px;
+    height: 27px;
+  }
+  #textbar select { max-width: 108px; }
+  #textbar input[type="number"] { width: 54px; }
+  #textbar input[type="color"] {
+    width: 27px; height: 27px;
+    padding: 2px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel-2);
+    cursor: pointer;
+  }
+  #textbar button.on { background: var(--panel-2); border-color: var(--accent); color: var(--accent); }
+  #textbar button b { font-weight: 700; }
+
+  /* ── 底部状态栏 ─────────────────────────────── */
+  #statusbar {
+    flex: none;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 14px;
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--dim);
+  }
+  #crumbs { display: flex; align-items: center; gap: 2px; min-width: 0; overflow: hidden; }
+  #crumbs .crumb {
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  #crumbs .crumb:hover { background: var(--panel-2); color: var(--text); }
+  #crumbs .crumb.cur { color: var(--accent); }
+  #crumbs .sep { color: #b9c8e6; }
+  #hints { margin-left: auto; white-space: nowrap; }
+
+  #dropzone {
+    position: fixed;
+    inset: 10px;
+    z-index: 50;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--accent);
+    border-radius: 18px;
+    background: rgba(240,246,255,.9);
+    backdrop-filter: blur(2px);
+  }
+  #dropzone.show { display: flex; }
+  #dropzone .tip { text-align: center; font-weight: 800; font-size: 17px; color: var(--accent); pointer-events: none; }
+  #dropzone .ico {
+    width: 64px; height: 64px;
+    margin: 0 auto 14px;
+    border-radius: 19px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff;
+    font-size: 30px;
+    display: grid; place-items: center;
+    transform: rotate(-8deg);
+    box-shadow: 0 10px 26px rgba(61,123,253,.35);
+  }
+  #dropzone .sub { margin-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--dim); }
+
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: 48px;
+    transform: translateX(-50%) translateY(16px);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-size: 13px;
+    padding: 9px 18px;
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(33,48,78,.18);
+    opacity: 0;
+    transition: opacity .18s, transform .18s;
+    pointer-events: none;
+    z-index: 99;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header id="topbar">
+  <div id="logo">
+    <div class="mark">轻</div>
+    <div>
+      <div class="name">轻页</div>
+      <div class="sub">AIRPAGE · VISUAL EDITOR</div>
+    </div>
+  </div>
+  <div class="vsep"></div>
+  <button id="btn-open">打开文件</button>
+  <button id="btn-demo">载入示例</button>
+  <button id="btn-mode" disabled title="放行页面自身的点击交互（切换标签页/子页面等）。编辑模式下按住 Alt 点击也有同样效果">⤳ 浏览模式</button>
+  <div class="vsep"></div>
+  <button id="btn-undo" disabled title="撤销（重做用快捷键：Ctrl+Y 或 ⌘⇧Z）">↺ 撤销</button>
+  <div id="fileinfo">
+    <span id="dirty-dot" title="有未保存的更改"></span>
+    <span id="filename"></span>
+  </div>
+  <div class="spacer"></div>
+  <button id="btn-save" class="primary" disabled>保存</button>
+</header>
+
+<main id="stage">
+  <div id="empty">
+    <div class="card">
+      <div class="glyph">轻</div>
+      <h1>把网页当画布，直接改</h1>
+      <p>打开或直接把本地 HTML 文件拖进窗口：单击选中元素，双击编辑文字，<br>拖拽调整顺序，Ctrl+S 保存回文件。</p>
+      <div class="actions">
+        <button id="btn-open2" class="primary">打开 HTML 文件</button>
+        <button id="btn-demo2">载入示例页面</button>
+      </div>
+      <div class="hint">纯本地运行 · 不上传任何内容 · Chrome / Edge 体验最佳</div>
+    </div>
+  </div>
+
+  <div id="canvas" hidden>
+    <iframe id="frame" title="正在编辑的文档"></iframe>
+    <div id="overlay">
+      <div id="hoverbox"></div>
+      <div id="selbox">
+        <div id="seltag"></div>
+        <i class="rz" data-dir="e" title="拖动调整宽度"></i>
+        <i class="rz" data-dir="s" title="拖动调整高度"></i>
+        <i class="rz" data-dir="se" title="拖动调整宽高"></i>
+      </div>
+      <div id="sizetag"></div>
+      <div id="dropline"></div>
+      <div id="actionbar" class="floatbar">
+        <button id="act-parent" title="选中父级元素">⤴ 父级</button>
+        <button id="act-up" title="上移（与前一个兄弟元素交换）">↑</button>
+        <button id="act-down" title="下移（与后一个兄弟元素交换）">↓</button>
+        <button id="act-dup" title="复制（Ctrl+D）">⧉</button>
+        <div class="vsep"></div>
+        <button id="act-del" class="danger" title="删除（Del）">✕</button>
+      </div>
+      <div id="textbar" class="floatbar">
+        <button id="fmt-bold" title="加粗"><b>B</b></button>
+        <button id="fmt-italic" title="斜体"><i>I</i></button>
+        <button id="fmt-underline" title="下划线"><u>U</u></button>
+        <div class="vsep"></div>
+        <select id="fmt-font" title="字体（作用于整个元素）">
+          <option value="">字体·默认</option>
+          <option value='"PingFang SC","Microsoft YaHei",sans-serif'>黑体/苹方</option>
+          <option value='"Songti SC",SimSun,serif'>宋体</option>
+          <option value='"Kaiti SC",KaiTi,serif'>楷体</option>
+          <option value='Georgia,"Times New Roman",serif'>Georgia</option>
+          <option value='ui-monospace,Menlo,Consolas,monospace'>等宽</option>
+        </select>
+        <input id="fmt-size" type="number" min="8" max="200" step="1" title="字号 px（作用于整个元素）">
+        <input id="fmt-color" type="color" title="文字颜色（作用于整个元素）">
+        <div class="vsep"></div>
+        <button id="fmt-left" title="左对齐">⇤</button>
+        <button id="fmt-center" title="居中">≡</button>
+        <button id="fmt-right" title="右对齐">⇥</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer id="statusbar">
+  <div id="crumbs"><span style="color:#b9c8e6">未打开文档</span></div>
+  <div id="hints"></div>
+</footer>
+
+<div id="dropzone">
+  <div class="tip">
+    <div class="ico">⇣</div>
+    松开，打开这个 HTML 文件
+    <div class="sub">支持 .html / .htm · Chrome 下拖入的文件也能 Ctrl+S 直接写回</div>
+  </div>
+</div>
+<div id="toast"></div>
+<input id="fileinput" type="file" accept=".html,.htm,text/html" hidden>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = id => document.getElementById(id);
+  const frame = $("frame");
+  const isMac = /Mac|iP(hone|ad|od)/.test(navigator.platform);
+  const MOD = isMac ? "⌘" : "Ctrl";
+
+  // ── 编辑器状态 ──────────────────────────────
+  let idoc = null;          // iframe 的 document
+  let fileHandle = null;    // File System Access API 句柄
+  let fileName = "";
+  let docType = "<!DOCTYPE html>";
+  let selectedEl = null;
+  let hoverEl = null;
+  let editingEl = null;     // 正在行内编辑的元素
+  let editingSnapshot = ""; // 进入编辑时的内容，用于判断是否有改动
+  let unsaved = false;
+
+  // 撤销/重做：body.innerHTML 快照栈
+  const HISTORY_MAX = 50;
+  let history = [];
+  let histPtr = -1;
+
+  // 拖拽状态
+  let drag = null; // {el, startX, startY, active, candidate, before}
+  let resize = null; // {el, dir, startX, startY, w0, h0, extraW, extraH}
+  let browseMode = false; // 浏览模式：放行页面自身交互，不做选中/编辑
+  let nudgeTimer = null;
+
+  const DEFAULT_HINTS = `单击选中 · 双击改文字 · 拖拽换位 · 方向键微调 · ${MOD}S 保存`;
+  $("hints").textContent = DEFAULT_HINTS;
+
+  // ── 工具函数 ──────────────────────────────
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => t.classList.remove("show"), 2200);
+  }
+
+  function rgbToHex(rgb) {
+    const m = rgb && rgb.match(/\d+/g);
+    if (!m) return "#000000";
+    return "#" + m.slice(0, 3).map(n => (+n).toString(16).padStart(2, "0")).join("");
+  }
+
+  function setDirty(on) {
+    unsaved = on;
+    $("dirty-dot").classList.toggle("on", on);
+  }
+
+  // 点击目标 → 可选中元素（html/body 视为空白）
+  function pick(target) {
+    if (!target || target === idoc.documentElement || target === idoc.body) return null;
+    if (!(target instanceof idoc.defaultView.Element)) return null;
+    return target;
+  }
+
+  // ── 文档载入 ──────────────────────────────
+  function loadDocument(html, name, handle) {
+    finishEditing();
+    deselect();
+    fileHandle = handle || null;
+    fileName = name || "untitled.html";
+    const m = html.match(/<!doctype[^>]*>/i);
+    docType = m ? m[0] : "<!DOCTYPE html>";
+
+    frame.contentDocument.open();
+    // about:blank 里 history API 会抛 SecurityError，包一层避免文档自带的导航脚本崩掉
+    try {
+      const ihist = frame.contentWindow.history;
+      for (const k of ["pushState", "replaceState"]) {
+        const fn = ihist[k].bind(ihist);
+        ihist[k] = (...a) => { try { return fn(...a); } catch (e) {} };
+      }
+    } catch (e) {}
+    frame.contentDocument.write(html);
+    frame.contentDocument.close();
+    idoc = frame.contentDocument;
+    attachDocListeners();
+
+    history = [idoc.body.innerHTML];
+    histPtr = 0;
+    updateHistoryButtons();
+    setDirty(false);
+
+    $("filename").textContent = fileName;
+    $("btn-save").disabled = false;
+    $("btn-mode").disabled = false;
+    browseMode = false;
+    $("btn-mode").classList.remove("on");
+    $("btn-mode").textContent = "⤳ 浏览模式";
+    $("hints").textContent = DEFAULT_HINTS;
+    $("empty").hidden = true;
+    $("canvas").hidden = false;
+    updateCrumbs();
+    toast(`已载入 ${fileName}`);
+  }
+
+  // ── 打开 / 保存 ──────────────────────────────
+  async function openFile() {
+    if (unsaved && !confirm("当前更改未保存，仍要打开新文件？")) return;
+    if (window.showOpenFilePicker) {
+      try {
+        const [h] = await showOpenFilePicker({
+          types: [{ description: "HTML", accept: { "text/html": [".html", ".htm"] } }]
+        });
+        const f = await h.getFile();
+        loadDocument(await f.text(), f.name, h);
+        return;
+      } catch (e) {
+        if (e.name === "AbortError") return;
+        // 环境不支持时回退到 input[type=file]
+      }
+    }
+    $("fileinput").click();
+  }
+
+  $("fileinput").addEventListener("change", async e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    loadDocument(await f.text(), f.name, null);
+    e.target.value = "";
+  });
+
+  // ── 拖放打开文件 ──────────────────────────────
+  const dz = $("dropzone");
+  const isFileDrag = e => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files");
+  const showDropzone = () => dz.classList.add("show");
+  const hideDropzone = () => dz.classList.remove("show");
+
+  window.addEventListener("dragenter", e => { if (isFileDrag(e)) { e.preventDefault(); showDropzone(); } });
+  window.addEventListener("dragover", e => { if (isFileDrag(e)) e.preventDefault(); });
+  dz.addEventListener("dragover", e => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; });
+  dz.addEventListener("dragleave", e => { if (e.target === dz) hideDropzone(); });
+  window.addEventListener("drop", e => { e.preventDefault(); handleFileDrop(e); });
+
+  async function handleFileDrop(e) {
+    hideDropzone();
+    const dt = e.dataTransfer;
+    const file = dt && dt.files && dt.files[0];
+    if (!file) return;
+    // 句柄必须在事件的同步阶段取，await 之后 dataTransfer.items 就失效了
+    let handleP = null;
+    const item = dt.items && dt.items[0];
+    if (item && item.getAsFileSystemHandle) {
+      try { handleP = item.getAsFileSystemHandle(); } catch (err) {}
+    }
+    if (!/\.html?$/i.test(file.name) && file.type !== "text/html") {
+      toast("只支持 .html / .htm 文件");
+      return;
+    }
+    if (unsaved && !confirm("当前更改未保存，仍要打开拖入的文件？")) return;
+    let handle = null;
+    if (handleP) {
+      try {
+        handle = await handleP;
+        if (handle && handle.kind !== "file") handle = null;
+      } catch (err) {}
+    }
+    loadDocument(await file.text(), file.name, handle);
+  }
+
+  function serialize() {
+    finishEditing();
+    const root = idoc.documentElement.cloneNode(true);
+    root.querySelectorAll("[contenteditable]").forEach(n => n.removeAttribute("contenteditable"));
+    return docType + "\n" + root.outerHTML + "\n";
+  }
+
+  async function saveFile() {
+    if (!idoc) return;
+    const html = serialize();
+    if (fileHandle) {
+      try {
+        if (fileHandle.queryPermission &&
+            (await fileHandle.queryPermission({ mode: "readwrite" })) !== "granted") {
+          await fileHandle.requestPermission({ mode: "readwrite" });
+        }
+        const w = await fileHandle.createWritable();
+        await w.write(html);
+        await w.close();
+        setDirty(false);
+        toast(`已保存到 ${fileName}`);
+        return;
+      } catch (e) {
+        if (e.name === "AbortError") return;
+      }
+    }
+    if (window.showSaveFilePicker) {
+      try {
+        const h = await showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{ description: "HTML", accept: { "text/html": [".html"] } }]
+        });
+        const w = await h.createWritable();
+        await w.write(html);
+        await w.close();
+        fileHandle = h;
+        fileName = h.name;
+        $("filename").textContent = fileName;
+        setDirty(false);
+        toast(`已保存到 ${fileName}`);
+        return;
+      } catch (e) {
+        if (e.name === "AbortError") return;
+      }
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    setDirty(false);
+    toast("已通过下载方式保存");
+  }
+
+  // ── 撤销 / 重做 ──────────────────────────────
+  function pushHistory() {
+    const snap = idoc.body.innerHTML;
+    if (history[histPtr] === snap) return;
+    history = history.slice(0, histPtr + 1);
+    history.push(snap);
+    if (history.length > HISTORY_MAX) history.shift();
+    histPtr = history.length - 1;
+    updateHistoryButtons();
+    setDirty(true);
+  }
+
+  function restoreHistory(ptr) {
+    finishEditing();
+    deselect();
+    histPtr = ptr;
+    idoc.body.innerHTML = history[ptr];
+    updateHistoryButtons();
+    setDirty(true);
+  }
+
+  function undo() { if (histPtr > 0) restoreHistory(histPtr - 1); }
+  function redo() { if (histPtr < history.length - 1) restoreHistory(histPtr + 1); }
+
+  function updateHistoryButtons() {
+    $("btn-undo").disabled = histPtr <= 0;
+  }
+
+  // ── 选中 ──────────────────────────────
+  function select(el) {
+    selectedEl = el;
+    updateCrumbs();
+  }
+
+  function deselect() {
+    selectedEl = null;
+    hoverEl = null;
+    updateCrumbs();
+  }
+
+  function updateCrumbs() {
+    const box = $("crumbs");
+    box.innerHTML = "";
+    if (!idoc) {
+      box.innerHTML = '<span style="color:#b9c8e6">未打开文档</span>';
+      return;
+    }
+    if (!selectedEl) {
+      box.innerHTML = '<span style="color:#b9c8e6">未选中元素</span>';
+      return;
+    }
+    const chain = [];
+    let n = selectedEl;
+    while (n && n !== idoc.documentElement) { chain.unshift(n); n = n.parentElement; }
+    chain.forEach((el, i) => {
+      if (i > 0) {
+        const s = document.createElement("span");
+        s.className = "sep";
+        s.textContent = "›";
+        box.appendChild(s);
+      }
+      const c = document.createElement("span");
+      c.className = "crumb" + (i === chain.length - 1 ? " cur" : "");
+      c.textContent = el.tagName.toLowerCase() +
+        (el.id ? "#" + el.id : "") +
+        (el.classList.length ? "." + el.classList[0] : "");
+      c.onclick = () => { if (el !== idoc.body) select(el); };
+      box.appendChild(c);
+    });
+  }
+
+  // ── 结构操作 ──────────────────────────────
+  function opDelete() {
+    if (!selectedEl) return;
+    pushHistory();
+    selectedEl.remove();
+    deselect();
+    pushHistory();
+  }
+
+  function opDuplicate() {
+    if (!selectedEl) return;
+    pushHistory();
+    const clone = selectedEl.cloneNode(true);
+    selectedEl.after(clone);
+    select(clone);
+    pushHistory();
+  }
+
+  function opMove(dir) {
+    if (!selectedEl) return;
+    const sib = dir < 0 ? selectedEl.previousElementSibling : selectedEl.nextElementSibling;
+    if (!sib) return;
+    pushHistory();
+    if (dir < 0) sib.before(selectedEl);
+    else sib.after(selectedEl);
+    pushHistory();
+  }
+
+  function opSelectParent() {
+    if (!selectedEl) return;
+    const p = selectedEl.parentElement;
+    if (p && p !== idoc.body && p !== idoc.documentElement) select(p);
+  }
+
+  // ── 行内文字编辑 ──────────────────────────────
+  function canEditText(el) {
+    return el && (el.textContent.trim().length > 0 || el.children.length === 0);
+  }
+
+  function enterEditing(el) {
+    if (editingEl === el) return;
+    finishEditing();
+    pushHistory();
+    editingEl = el;
+    editingSnapshot = el.innerHTML;
+    el.setAttribute("contenteditable", "true");
+    try { idoc.execCommand("styleWithCSS", false, true); } catch (e) {}
+    el.focus();
+    select(el);
+    const cs = idoc.defaultView.getComputedStyle(el);
+    $("fmt-size").value = Math.round(parseFloat(cs.fontSize)) || "";
+    $("fmt-color").value = rgbToHex(cs.color);
+    $("fmt-font").value = "";
+  }
+
+  function finishEditing() {
+    if (!editingEl) return;
+    const el = editingEl;
+    editingEl = null;
+    el.removeAttribute("contenteditable");
+    if (el.innerHTML !== editingSnapshot) pushHistory();
+  }
+
+  // 文字工具栏（mousedown 阻止默认行为，避免夺走 iframe 里的选区焦点）
+  $("textbar").addEventListener("mousedown", e => {
+    if (e.target.closest("button")) e.preventDefault();
+  });
+  function exec(cmd) { if (editingEl) idoc.execCommand(cmd); }
+  $("fmt-bold").onclick = () => exec("bold");
+  $("fmt-italic").onclick = () => exec("italic");
+  $("fmt-underline").onclick = () => exec("underline");
+  $("fmt-font").onchange = e => {
+    if (!editingEl) return;
+    editingEl.style.fontFamily = e.target.value;
+    if (!e.target.value) editingEl.style.removeProperty("font-family");
+  };
+  $("fmt-size").onchange = e => {
+    if (editingEl && e.target.value) editingEl.style.fontSize = e.target.value + "px";
+  };
+  $("fmt-color").oninput = e => {
+    if (editingEl) editingEl.style.color = e.target.value;
+  };
+  $("fmt-left").onclick = () => { if (editingEl) editingEl.style.textAlign = "left"; };
+  $("fmt-center").onclick = () => { if (editingEl) editingEl.style.textAlign = "center"; };
+  $("fmt-right").onclick = () => { if (editingEl) editingEl.style.textAlign = "right"; };
+
+  // ── 浮动操作条 ──────────────────────────────
+  $("act-del").onclick = opDelete;
+  $("act-dup").onclick = opDuplicate;
+  $("act-up").onclick = () => opMove(-1);
+  $("act-down").onclick = () => opMove(1);
+  $("act-parent").onclick = opSelectParent;
+
+  // ── 尺寸调整（选中框手柄）──────────────────────
+  // 手柄在父页面而指针会滑到 iframe 上方，必须用 Pointer Capture 钉住事件流
+  document.querySelectorAll("#selbox .rz").forEach(handle => {
+    handle.addEventListener("pointerdown", e => {
+      if (!selectedEl || !idoc) return;
+      e.preventDefault();
+      handle.setPointerCapture(e.pointerId);
+      const iwin = idoc.defaultView;
+      const cs = iwin.getComputedStyle(selectedEl);
+      const r = selectedEl.getBoundingClientRect();
+      const n = p => parseFloat(cs[p]) || 0;
+      const bb = cs.boxSizing === "border-box";
+      resize = {
+        el: selectedEl, dir: handle.dataset.dir, startX: e.clientX, startY: e.clientY,
+        w0: r.width, h0: r.height,
+        extraW: bb ? 0 : n("paddingLeft") + n("paddingRight") + n("borderLeftWidth") + n("borderRightWidth"),
+        extraH: bb ? 0 : n("paddingTop") + n("paddingBottom") + n("borderTopWidth") + n("borderBottomWidth"),
+      };
+      pushHistory(); // 先把外部（页面脚本）造成的 DOM 变化并入历史
+      const parent = selectedEl.parentElement;
+      if (parent && iwin.getComputedStyle(parent).display.includes("flex")) {
+        selectedEl.style.flexGrow = "0"; // 冻结 flex 伸缩（含 basis:0%），让 width/height 生效
+        selectedEl.style.flexShrink = "0";
+        selectedEl.style.flexBasis = "auto";
+      }
+    });
+    handle.addEventListener("pointermove", e => {
+      if (!resize) return;
+      const { el, dir } = resize;
+      if (dir.includes("e")) {
+        const w = Math.max(10, resize.w0 + e.clientX - resize.startX);
+        el.style.width = Math.max(1, w - resize.extraW) + "px";
+      }
+      if (dir.includes("s")) {
+        const h = Math.max(10, resize.h0 + e.clientY - resize.startY);
+        el.style.height = Math.max(1, h - resize.extraH) + "px";
+      }
+    });
+    const endResize = () => {
+      if (!resize) return;
+      resize = null;
+      pushHistory();
+    };
+    handle.addEventListener("pointerup", endResize);
+    handle.addEventListener("lostpointercapture", endResize);
+  });
+
+  // ── 位置微调（方向键，文档流内相对偏移） ──────────
+  function nudgeSelected(dx, dy) {
+    const el = selectedEl;
+    if (!nudgeTimer) pushHistory(); // 微调前先固化当前状态
+    const cs = idoc.defaultView.getComputedStyle(el);
+    if (cs.position === "static") el.style.position = "relative";
+    const cur = p => parseFloat(el.style[p]) || parseFloat(cs[p]) || 0;
+    if (dx) el.style.left = cur("left") + dx + "px";
+    if (dy) el.style.top = cur("top") + dy + "px";
+    clearTimeout(nudgeTimer);
+    nudgeTimer = setTimeout(() => { nudgeTimer = null; pushHistory(); }, 600); // 连续按键合并为一步
+  }
+
+  // ── 浏览模式 ──────────────────────────────
+  function setBrowseMode(on) {
+    if (!idoc || browseMode === on) return;
+    browseMode = on;
+    if (on) { finishEditing(); deselect(); }
+    else pushHistory(); // 浏览期间页面脚本的 DOM 变化并入历史（无变化会被去重）
+    $("btn-mode").classList.toggle("on", on);
+    $("btn-mode").textContent = on ? "✎ 返回编辑" : "⤳ 浏览模式";
+    $("hints").textContent = on
+      ? "浏览模式：点击由页面自身响应（切换子页面等） · Esc 返回编辑"
+      : DEFAULT_HINTS;
+    toast(on ? "浏览模式：页面交互已放行" : "已返回编辑模式");
+  }
+  $("btn-mode").onclick = () => setBrowseMode(!browseMode);
+
+  // ── iframe 文档事件 ──────────────────────────────
+  function attachDocListeners() {
+    const iwin = idoc.defaultView;
+
+    idoc.addEventListener("mousedown", e => {
+      if (browseMode || e.altKey) return; // 浏览模式 / Alt+点击：交给页面自身处理
+      const inEditing = editingEl && editingEl.contains(e.target);
+      if (inEditing) return; // 编辑中允许原生光标定位
+      e.preventDefault();
+      e.stopPropagation();
+      finishEditing();
+      const el = pick(e.target);
+      if (el) {
+        select(el);
+        drag = { el, startX: e.clientX, startY: e.clientY, active: false, candidate: null, before: true };
+      } else {
+        deselect();
+      }
+    }, true);
+
+    idoc.addEventListener("mousemove", e => {
+      if (browseMode || resize) { hoverEl = null; return; }
+      if (drag && !drag.active) {
+        if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > 5) {
+          drag.active = true;
+          drag.el.style.pointerEvents = "none";
+        }
+      }
+      if (drag && drag.active) {
+        let t = idoc.elementFromPoint(e.clientX, e.clientY);
+        t = pick(t);
+        if (t && !drag.el.contains(t) && t !== drag.el) {
+          const r = t.getBoundingClientRect();
+          drag.candidate = t;
+          drag.before = e.clientY < r.top + r.height / 2;
+        } else {
+          drag.candidate = null;
+        }
+        return;
+      }
+      if (!editingEl) {
+        const el = pick(e.target);
+        hoverEl = el && el !== selectedEl ? el : null;
+      }
+    }, true);
+
+    const endDrag = () => {
+      if (!drag) return;
+      const d = drag;
+      drag = null;
+      if (d.active) {
+        d.el.style.pointerEvents = "";
+        if (!d.el.getAttribute("style")) d.el.removeAttribute("style");
+        if (d.candidate) {
+          pushHistory();
+          if (d.before) d.candidate.before(d.el);
+          else d.candidate.after(d.el);
+          pushHistory();
+        }
+      }
+    };
+    idoc.addEventListener("mouseup", endDrag, true);
+    window.addEventListener("mouseup", endDrag, true);
+
+    // 拦截页面自身的点击行为（链接跳转、按钮提交等）
+    idoc.addEventListener("click", e => {
+      if (browseMode || e.altKey) return;
+      if (editingEl && editingEl.contains(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+    }, true);
+
+    idoc.addEventListener("dblclick", e => {
+      if (browseMode || e.altKey) return;
+      if (editingEl && editingEl.contains(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const el = pick(e.target);
+      if (el && canEditText(el)) enterEditing(el);
+    }, true);
+
+    // 从系统拖文件进来时指针常落在 iframe 上，文档里也要接住拖放
+    idoc.addEventListener("dragenter", e => { if (isFileDrag(e)) { e.preventDefault(); showDropzone(); } }, true);
+    idoc.addEventListener("dragover", e => { if (isFileDrag(e)) e.preventDefault(); }, true);
+    idoc.addEventListener("drop", e => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      handleFileDrop(e);
+    }, true);
+
+    idoc.addEventListener("keydown", onKeydown, true);
+    iwin.addEventListener("beforeunload", () => { idoc = null; });
+  }
+
+  // ── 快捷键 ──────────────────────────────
+  function onKeydown(e) {
+    const mod = isMac ? e.metaKey : e.ctrlKey;
+
+    if (mod && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      saveFile();
+      return;
+    }
+    if (browseMode) {
+      if (e.key === "Escape") { e.preventDefault(); setBrowseMode(false); }
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      if (editingEl) finishEditing();
+      else deselect();
+      return;
+    }
+    if (editingEl) return; // 编辑文字时其余快捷键交给 contenteditable 原生处理
+
+    if (selectedEl && e.key.startsWith("Arrow")) {
+      e.preventDefault();
+      const step = e.shiftKey ? 10 : 1;
+      nudgeSelected(
+        e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0,
+        e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0
+      );
+      return;
+    }
+
+    if (mod && !e.shiftKey && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); return; }
+    if (mod && (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))) {
+      e.preventDefault(); redo(); return;
+    }
+    if (mod && e.key.toLowerCase() === "d") { e.preventDefault(); opDuplicate(); return; }
+    if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); opDelete(); return; }
+  }
+  window.addEventListener("keydown", onKeydown);
+
+  // ── 覆盖层定位（rAF 循环，天然跟随滚动/回流） ──
+  function place(box, r) {
+    box.style.display = "block";
+    box.style.left = r.left + "px";
+    box.style.top = r.top + "px";
+    box.style.width = r.width + "px";
+    box.style.height = r.height + "px";
+  }
+
+  function placeBar(bar, rect, stageW) {
+    bar.style.display = "flex";
+    const w = bar.offsetWidth, h = bar.offsetHeight;
+    let x = Math.min(Math.max(6, rect.left), stageW - w - 6);
+    let y = rect.top - h - 26; // 额外让出上方标签 chip 的高度
+    if (y < 6) y = rect.bottom + 8;
+    bar.style.left = x + "px";
+    bar.style.top = y + "px";
+    bar.style.width = "";
+    bar.style.height = "";
+  }
+
+  function tick() {
+    requestAnimationFrame(tick);
+    const selbox = $("selbox"), hoverbox = $("hoverbox"),
+          actionbar = $("actionbar"), textbar = $("textbar"), dropline = $("dropline");
+    if (!idoc) {
+      selbox.style.display = hoverbox.style.display = dropline.style.display = "none";
+      actionbar.style.display = textbar.style.display = "none";
+      return;
+    }
+    const stageW = $("overlay").clientWidth;
+
+    if (selectedEl && !selectedEl.isConnected) deselect();
+    if (hoverEl && !hoverEl.isConnected) hoverEl = null;
+
+    if (hoverEl && !drag?.active && !editingEl) place(hoverbox, hoverEl.getBoundingClientRect());
+    else hoverbox.style.display = "none";
+
+    if (selectedEl) {
+      const r = selectedEl.getBoundingClientRect();
+      place(selbox, r);
+      selbox.classList.toggle("editing", !!editingEl);
+      selbox.classList.toggle("dragging", !!drag?.active);
+      selbox.classList.toggle("tag-inside", r.top < 24);
+      $("seltag").textContent = selectedEl.tagName.toLowerCase() +
+        (selectedEl.id ? "#" + selectedEl.id : "");
+      if (editingEl) {
+        actionbar.style.display = "none";
+        placeBar(textbar, r, stageW);
+      } else if (drag?.active) {
+        actionbar.style.display = textbar.style.display = "none";
+      } else {
+        textbar.style.display = "none";
+        placeBar(actionbar, r, stageW);
+      }
+    } else {
+      selbox.style.display = "none";
+      actionbar.style.display = textbar.style.display = "none";
+    }
+
+    if (resize && resize.el.isConnected) {
+      const r = resize.el.getBoundingClientRect();
+      const st = $("sizetag");
+      st.style.display = "block";
+      st.textContent = Math.round(r.width) + " × " + Math.round(r.height);
+      st.style.left = Math.min(r.right + 10, stageW - 96) + "px";
+      st.style.top = (r.bottom + 10) + "px";
+    } else {
+      $("sizetag").style.display = "none";
+    }
+
+    if (drag?.active && drag.candidate) {
+      const r = drag.candidate.getBoundingClientRect();
+      dropline.style.display = "block";
+      dropline.style.left = r.left + "px";
+      dropline.style.width = r.width + "px";
+      dropline.style.top = (drag.before ? r.top - 2 : r.bottom - 1) + "px";
+    } else {
+      dropline.style.display = "none";
+    }
+  }
+  requestAnimationFrame(tick);
+
+  // ── 示例文档 ──────────────────────────────
+  const DEMO = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>山雾茶社 · 季度小报</title>
+<style>
+  body { margin:0; font-family:"PingFang SC","Microsoft YaHei",sans-serif; background:#faf6ef; color:#2c2a26; }
+  .wrap { max-width:720px; margin:0 auto; padding:56px 32px 80px; }
+  .kicker { letter-spacing:.3em; font-size:12px; color:#8a7b5c; }
+  h1 { font-size:38px; margin:10px 0 6px; line-height:1.25; }
+  .lede { color:#6b655a; font-size:16px; line-height:1.9; }
+  hr { border:0; border-top:1px solid #e2d9c8; margin:36px 0; }
+  h2 { font-size:21px; margin:0 0 12px; }
+  p { line-height:1.9; margin:0 0 14px; }
+  .cards { display:flex; gap:14px; margin:20px 0 8px; }
+  .card { flex:1; background:#fff; border:1px solid #e6ddcc; border-radius:12px; padding:18px; }
+  .card b { display:block; font-size:24px; margin-bottom:4px; color:#7a5c2e; }
+  .card span { font-size:13px; color:#8a8272; }
+  table { width:100%; border-collapse:collapse; margin:18px 0; font-size:14px; }
+  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid #e6ddcc; }
+  th { color:#8a7b5c; font-weight:500; font-size:12.5px; }
+  ul { line-height:2; padding-left:22px; }
+  .footer { margin-top:44px; font-size:12.5px; color:#a39a88; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">MOUNTAIN MIST TEAHOUSE</div>
+  <h1>山雾茶社 · 夏季经营小报</h1>
+  <p class="lede">双击这行文字试试行内编辑，单击任意元素可以选中它，按住拖动就能调整顺序。这份示例页面完全可以随意折腾。</p>
+  <hr>
+  <h2>本季亮点</h2>
+  <div class="cards">
+    <div class="card"><b>2,481</b><span>到店客人</span></div>
+    <div class="card"><b>36%</b><span>冷萃茶销量增长</span></div>
+    <div class="card"><b>4.9</b><span>平均评分</span></div>
+  </div>
+  <p>夏季新品「云顶冷萃」上线六周后成为销量第一，带动了整体下午时段的客流。周末的屋顶茶席几乎场场约满，建议下一季提前两周开放预约。</p>
+  <h2>茶单表现</h2>
+  <table>
+    <tr><th>茶品</th><th>杯数</th><th>环比</th></tr>
+    <tr><td>云顶冷萃</td><td>612</td><td>新品</td></tr>
+    <tr><td>桂花乌龙</td><td>548</td><td>+12%</td></tr>
+    <tr><td>白毫银针</td><td>301</td><td>−4%</td></tr>
+  </table>
+  <h2>下季度计划</h2>
+  <ul>
+    <li>屋顶茶席引入晚间场次，配一位常驻茶艺师</li>
+    <li>和本地烘焙坊合作推出茶点拼盘</li>
+    <li>会员积分打通线上商城</li>
+  </ul>
+  <p class="footer">山雾茶社 · 内部资料 · 本页由「轻页 AirPage」示例生成</p>
+</div>
+</body>
+</html>`;
+
+  // ── 顶部按钮 ──────────────────────────────
+  $("btn-open").onclick = openFile;
+  $("btn-open2").onclick = openFile;
+  $("btn-demo").onclick = () => {
+    if (unsaved && !confirm("当前更改未保存，仍要载入示例？")) return;
+    loadDocument(DEMO, "demo.html", null);
+  };
+  $("btn-demo2").onclick = $("btn-demo").onclick;
+  $("btn-save").onclick = saveFile;
+  $("btn-undo").onclick = undo;
+
+  window.addEventListener("beforeunload", e => {
+    if (unsaved) { e.preventDefault(); e.returnValue = ""; }
+  });
+
+  // 供自动化测试与调试使用
+  window.__editor = { serialize: () => serialize(), getDoc: () => idoc };
+})();
+</script>
+</body>
+</html>
